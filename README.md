@@ -1,69 +1,69 @@
-# Настройка NAT и маршрутизации в Red Hat9 Linux
-В этой инструкции разбирается настройка сервера Linux в роли маршрутизатора (шлюза), который будет раздавать интернет другим устройствам. Используются стандартные инструменты: nmtui, sysctl и nftables.
+#Configuring NAT and Routing in Linux using nmtui, sysctl, and nftables
 
-1. Настройка сетевых интерфейсов через nmtui
+This guide explains how to configure a Linux server to act as a router (gateway) that shares internet access with other devices. Standard tools are used: nmtui, sysctl, and nftables.
 
-Команда:
+1. Configuring Network Interfaces via nmtui
+
+Command:
 
 nmtui
 
-Это текстовый интерфейс для управления сетью (часть NetworkManager).
+This is a text-based interface for network management (part of NetworkManager).
 
-Что здесь делается:
-Вы настраиваете сетевые адаптеры
-Назначаете IP-адреса
-Переименовываете интерфейсы (например, ens160, ens192)
-Указываете, какой интерфейс будет:
-внешним (WAN) — с доступом в интернет
-внутренним (LAN) — для локальной сети
+What is done here:
+Configure network adapters
+Assign IP addresses
+Rename interfaces (e.g., ens160, ens192)
+Specify which interface will be:
+external (WAN) — with internet access
+internal (LAN) — for the local network
 
-👉 Пример:
+👉 Example:
 
-ens160 — интернет
-ens192 — локальная сеть
-2. Применение настроек
-exec bash
-Зачем это нужно:
+ens160 — internet
+ens192 — local network
+2. Applying Settings
+Why this is needed:
 
-Перезапускает текущую оболочку (bash), чтобы:
+Restarts the current shell (bash) to:
 
-применились новые переменные среды
-обновились сетевые настройки
+apply new environment variables
+refresh network settings
 
-(Не всегда обязательно, но часто используют после изменений сети)
+(Not always required, but often used after network changes)
 
-3. Включение IP-переадресации
+3. Enabling IP Forwarding
 
-Открываем файл:
+Open the file:
 
 nano /etc/sysctl.conf
 
-Добавляем или изменяем строку:
+Add or modify the line:
 
 net.ipv4.ip_forward = 1
-Что это значит:
+What it means:
 
-Это включает маршрутизацию пакетов между интерфейсами.
+This enables packet routing between interfaces.
 
-📌 Без этого:
+📌 Without this:
 
-компьютер НЕ будет пересылать пакеты
-он работает как обычный хост
+the computer will NOT forward packets
+it behaves like a regular host
 
-📌 С этим:
+📌 With this:
 
-становится роутером
+it becomes a router
 
-Применяем настройки:
+Apply the settings:
 
 sysctl -p
-4. Настройка NAT через nftables
+4. Configuring NAT with nftables
 
-Создаём файл, например:
+Create a file, for example:
 
 /etc/nftables/my_nat.nft
 
-И добавляем:
+Add:
 
 table inet nat {
     chain POSTROUTING {
@@ -71,90 +71,96 @@ table inet nat {
         oifname "ens160" masquerade
     }
 }
-Разбор конфигурации
+Configuration Breakdown
+
 table inet nat
-Создаёт таблицу NAT (для IPv4 и IPv6)
+Creates a NAT table (for IPv4 and IPv6)
+
 chain POSTROUTING
-Цепочка, которая обрабатывает пакеты после маршрутизации
+A chain that processes packets after routing
+
 type nat hook postrouting
-Указывает, что это NAT-цепочка
-postrouting — применяется перед выходом пакета
+Specifies this as a NAT chain
+postrouting — applied before the packet leaves
+
 oifname "ens160"
-Условие: применяется только к пакетам, выходящим через интерфейс ens160
+Condition: applies only to packets going out through interface ens160
+
 masquerade
-Включает маскарадинг (NAT)
+Enables masquerading (NAT)
 
-👉 Это означает:
+👉 This means:
 
-все устройства из локальной сети будут выходить в интернет с IP сервера
-5. Подключение конфигурации nftables
+All devices in the local network will access the internet using the server’s IP address.
 
-Редактируем файл:
+5. Enabling nftables Configuration
+
+Edit the file:
 
 nano /etc/sysconfig/nftables.conf
 
-Находим строку:
+Find the line:
 
 # include "/etc/nftables/main.nft"
-Что делаем:
-Убираем #
-Меняем на свой файл:
+What to do:
+Remove #
+Replace with your file:
 include "/etc/nftables/my_nat.nft"
-6. Запуск и автозагрузка nftables
+6. Starting and Enabling nftables
 systemctl enable --now nftables
-Что делает команда:
-enable — включает автозапуск при загрузке
---now — запускает прямо сейчас
-7. Итог: что получилось
+What this command does:
+enable — enables autostart at boot
+--now — starts the service immediately
+7. Result
 
-После всех шагов система:
+After completing all steps, the system:
 
-✅ Пересылает пакеты (IP forwarding)
-✅ Маскирует локальную сеть (NAT)
-✅ Работает как полноценный маршрутизатор
+✅ Forwards packets (IP forwarding)
+✅ Performs NAT (masquerading)
+✅ Functions as a full router
 
-8. Как это работает в целом
-Устройство из LAN отправляет пакет
-Сервер принимает его
-Перенаправляет через WAN (ens160)
-Подменяет IP (masquerade)
-Интернет отвечает серверу
-Сервер возвращает ответ клиенту
-9. Типичная схема
-[ Клиенты LAN ]
+8. How It Works
+A device in the LAN sends a packet
+The server receives it
+Forwards it through WAN (ens160)
+Rewrites the IP (masquerade)
+The internet responds to the server
+The server sends the response back to the client
+9. Typical Setup
+[ LAN Clients ]
         ↓
    ens192 (LAN)
-   [ Linux сервер ]
+   [ Linux Server ]
    ens160 (WAN)
         ↓
-     Интернет
-10. Частые ошибки
+     Internet
+10. Common Mistakes
 
-❌ Не включён ip_forward
-❌ Неправильно указан интерфейс (ens160)
-❌ nftables не запущен
-❌ Конфиг не подключён в nftables.conf
+❌ IP forwarding not enabled
+❌ Wrong interface specified (ens160)
+❌ nftables not running
+❌ Configuration not included in nftables.conf
 
-11. Проверка
+11. Verification
 
-Проверить NAT:
+Check NAT rules:
 
 nft list ruleset
 
-Проверить маршрутизацию:
+Check IP forwarding:
 
 cat /proc/sys/net/ipv4/ip_forward
 
-Должно быть:
+Expected output:
 
 1
-Вывод
+Conclusion
 
-Ты настроил:
+You have configured:
 
-сетевые интерфейсы (nmtui)
-маршрутизацию (sysctl)
+Network interfaces (nmtui)
+Routing (sysctl)
 NAT (nftables)
-автозапуск (systemctl)
+Autostart (systemctl)
 
-Это классическая конфигурация Linux как шлюза/роутера — основа для серверов, виртуализации и лабораторных сетей.
+This is a classic Linux gateway/router setup — the foundation for servers, virtualization, and lab networks.
