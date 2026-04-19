@@ -1,4 +1,4 @@
-#Configuring NAT and Routing in Linux using nmtui, sysctl, and nftables
+Configuring NAT and Routing in Linux using nmtui, sysctl, and nftables
 
 This guide explains how to configure a Linux server to act as a router (gateway) that shares internet access with other devices. Standard tools are used: nmtui, sysctl, and nftables.
 
